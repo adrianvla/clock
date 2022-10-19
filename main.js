@@ -102,7 +102,7 @@ class Text{
       if(txt[i]==" "){
         x+=2;
       }else{
-        let o = new Image(font[txt[0]],x,y,c);
+        let o = new Image(font[txt[i]],x,y,c);
         o.draw();
         x+=(gap+3);
       }
@@ -116,7 +116,7 @@ class Text{
       if(txt[i]==" "){
         x+=2;
       }else{
-        let o = new Image(font[txt[0]],x,y);
+        let o = new Image(font[txt[i]],x,y);
         o.drawHole();
         x+=(gap+3);
       }
