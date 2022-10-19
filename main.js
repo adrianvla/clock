@@ -87,8 +87,9 @@ class Image{
   }
 }
 class Text{
-  constructor(txt){
+  constructor(txt,gap=1){
     this.txt=txt;
+    this.gap=gap;
   }
   set(txt){
     this.txt=txt;
@@ -96,26 +97,28 @@ class Text{
   }
   draw(x,y,c){
     let txt = this.txt.split('');
+    let gap = this.gap;
     for(let i = 0;i < txt.length;i++){
       if(txt[i]==" "){
         x+=6;
       }else{
         let o = new Image(font[txt[0]],x,y,c);
         o.draw();
-        x+=4;
+        x+=(gap+1);
       }
     }
     return this;
   }
   drawHole(x,y){
     let txt = this.txt.split('');
+    let gap = this.gap;
     for(let i = 0;i < txt.length;i++){
       if(txt[i]==" "){
         x+=6;
       }else{
         let o = new Image(font[txt[0]],x,y,c);
         o.drawHole();
-        x+=4;
+        x+=(gap+1);
       }
     }
     return this;
@@ -135,7 +138,8 @@ setInterval(()=>{
   for(let i = 0; i<channel.count;i++){
     colors[i] = 0x000000;
   }
-  drawAImage(calendar,0,0,0);
+  let calendarImg = new Image(calendar,0,0,0);
+  calendarImg.drawAbsolute();
 
   if(h.length == 1)
     h = "0"+h;
@@ -166,8 +170,8 @@ setInterval(()=>{
   }
   placepixel(Math.floor(Number(s)*(22/60))+9,0,0x100000);
 
-  drawHoleImage(font[day[0]],1,2);
-  drawHoleImage(font[day[1]],4,2);
+  let calendarHole = new Text(day,0);
+  calendarHole.drawHole(1,2);
 
   for(let i = 0;i<7;i++){
     let Q = (i*3)+10;
