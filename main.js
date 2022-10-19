@@ -116,7 +116,7 @@ class Text{
       if(txt[i]==" "){
         x+=6;
       }else{
-        let o = new Image(font[txt[0]],x,y,c);
+        let o = new Image(font[txt[0]],x,y);
         o.drawHole();
         x+=(gap+1);
       }
