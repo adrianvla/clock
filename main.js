@@ -100,11 +100,11 @@ class Text{
     let gap = this.gap;
     for(let i = 0;i < txt.length;i++){
       if(txt[i]==" "){
-        x+=6;
+        x+=2;
       }else{
         let o = new Image(font[txt[0]],x,y,c);
         o.draw();
-        x+=(gap+1);
+        x+=(gap+3);
       }
     }
     return this;
@@ -114,11 +114,11 @@ class Text{
     let gap = this.gap;
     for(let i = 0;i < txt.length;i++){
       if(txt[i]==" "){
-        x+=6;
+        x+=2;
       }else{
         let o = new Image(font[txt[0]],x,y);
         o.drawHole();
-        x+=(gap+1);
+        x+=(gap+3);
       }
     }
     return this;
