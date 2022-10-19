@@ -45,31 +45,80 @@ let font = {"0":[[t,t,t],[t,0,t],[t,0,t],[t,0,t],[t,t,t]],"1":[[0,t,0],[t,t,0],[
 let r = 0x080000,w = 0x080808;
 let calendar = [[r,r,r,r,r,r,r,r],[r,r,r,r,r,r,r,r],[w,w,w,w,w,w,w,w],[w,w,w,w,w,w,w,w],[w,w,w,w,w,w,w,w],[w,w,w,w,w,w,w,w],[w,w,w,w,w,w,w,w],[w,w,w,w,w,w,w,w]];
 
-function drawImage(img,x,y,c){
-  let w = img[0].length,h = img.length;
-  for(let yy=0;yy<h;yy++){
-    for(let xx=0;xx<w;xx++){
-      placepixel(xx+x,yy+y,img[yy][xx] & c);
+
+
+class Image{
+  constructor(img, x, y, c){
+    this.img = img;
+    this.x=x;
+    this.y=y;
+    this.c=c;
+  }
+  draw(){
+    let img = this.img, x=this.x, y=this.y, c=this.c;
+    let w = img[0].length,h = img.length;
+    for(let yy=0;yy<h;yy++){
+      for(let xx=0;xx<w;xx++){
+        placepixel(xx+x,yy+y,img[yy][xx] & c);
+      }
     }
+    return this;
+  }
+  drawAbsolute(){
+    let img = this.img, x=this.x, y=this.y, c=this.c;
+    let w = img[0].length,h = img.length;
+    for(let yy=0;yy<h;yy++){
+      for(let xx=0;xx<w;xx++){
+        placepixel(xx+x,yy+y,img[yy][xx]);
+      }
+    }
+    return this;
+  }
+  drawHole(){
+    let img = this.img, x=this.x, y=this.y, c=this.c;
+    let w = img[0].length,h = img.length;
+    for(let yy=0;yy<h;yy++){
+      for(let xx=0;xx<w;xx++){
+        if(img[yy][xx])
+          placepixel(xx+x,yy+y,0);
+      }
+    }
+    return this;
   }
 }
-
-function drawAImage(img,x,y){
-  let w = img[0].length,h = img.length;
-  for(let yy=0;yy<h;yy++){
-    for(let xx=0;xx<w;xx++){
-      placepixel(xx+x,yy+y,img[yy][xx]);
-    }
+class Text{
+  constructor(txt){
+    this.txt=txt;
   }
-}
-
-function drawHoleImage(img,x,y){
-  let w = img[0].length,h = img.length;
-  for(let yy=0;yy<h;yy++){
-    for(let xx=0;xx<w;xx++){
-      if(img[yy][xx])
-        placepixel(xx+x,yy+y,0);
+  set(txt){
+    this.txt=txt;
+    return this;
+  }
+  draw(x,y,c){
+    let txt = this.txt.split('');
+    for(let i = 0;i < txt.length;i++){
+      if(txt[i]==" "){
+        x+=6;
+      }else{
+        let o = new Image(font[txt[0]],x,y,c);
+        o.draw();
+        x+=4;
+      }
     }
+    return this;
+  }
+  drawHole(x,y){
+    let txt = this.txt.split('');
+    for(let i = 0;i < txt.length;i++){
+      if(txt[i]==" "){
+        x+=6;
+      }else{
+        let o = new Image(font[txt[0]],x,y,c);
+        o.drawHole();
+        x+=4;
+      }
+    }
+    return this;
   }
 }
 
@@ -87,7 +136,6 @@ setInterval(()=>{
     colors[i] = 0x000000;
   }
   drawAImage(calendar,0,0,0);
-  let O = 11;
 
   if(h.length == 1)
     h = "0"+h;
@@ -96,11 +144,15 @@ setInterval(()=>{
   if(day.length == 1)
     day = "0"+day;
 
-  drawImage(font[h[0]],O,1,0x101010);
-  drawImage(font[h[1]],O+4,1,0x101010);
-  drawImage(font[m[0]],O+10,1,0x101010);
-  drawImage(font[m[1]],O+14,1,0x101010);
+  //drawImage(font[h[0]],O,1,0x101010);
+  //drawImage(font[h[1]],O+4,1,0x101010);
+  //drawImage(font[m[0]],O+10,1,0x101010);
+  //drawImage(font[m[1]],O+14,1,0x101010);
   
+  let timetext = new Text(`${h} ${m}`);
+  timetext.draw(11,1,0x101010);
+
+
   if(p%2==0){
     placepixel(O+8,2,0x101010);
     placepixel(O+8,4,0x101010);
