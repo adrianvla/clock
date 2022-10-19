@@ -23,11 +23,22 @@ function toHex(r,g,b){
 
 
 const express = require('express');
+const ws = require('ws');
 const app = express();
 app.get('/', (req,res) =>{
-  
+  //res.sendfile(__dirname + '/ws.html');
 });
-app.listen(80, ()=>{});
+const wsServer = new ws.Server({ noServer: true });
+wsServer.on('connection', socket => {
+  socket.on('message', message => console.log(message));
+});
+const server = app.listen(80, ()=>{});
+server.on('upgrade', (request, socket, head) => {
+  wsServer.handleUpgrade(request, socket, head, socket => {
+    wsServer.emit('connection', socket, request);
+  });
+});
+
 
 let t = 0xffffff;
 let font = {"0":[[t,t,t],[t,0,t],[t,0,t],[t,0,t],[t,t,t]],"1":[[0,t,0],[t,t,0],[0,t,0],[0,t,0],[t,t,t]],"2":[[t,t,t],[0,0,t],[t,t,t],[t,0,0],[t,t,t]],"3":[[t,t,t],[0,0,t],[t,t,t],[0,0,t],[t,t,t]],"4":[[t,0,t],[t,0,t],[t,t,t],[0,0,t],[0,0,t]],"5":[[t,t,t],[t,0,0],[t,t,t],[0,0,t],[t,t,t]],"6":[[t,t,t],[t,0,0],[t,t,t],[t,0,t],[t,t,t]],"7":[[t,t,t],[0,0,t],[0,0,t],[0,0,t],[0,0,t]],"8":[[t,t,t],[t,0,t],[t,t,t],[t,0,t],[t,t,t]],"9":[[t,t,t],[t,0,t],[t,t,t],[0,0,t],[t,t,t]]};
