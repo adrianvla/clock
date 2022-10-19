@@ -127,6 +127,9 @@ class Text{
 
 let p = 0;
 
+let alarmClock = [{type:"image",data:calendar,x:0,y:0,imageType:"absolute"},{type:"text",indicator:"d",textType:"negative",x:1,y:2},{type:"text",indicator:"h m",textType:"color",color:0x101010,x:11,y:1},{type:"image",data:[[0],[0xffffff],[0],[0xffffff],[0]],imageType:"normal",color:0x101010,x:19,y:1,active:0.5},{type:"weekday",gap:1,w:2,x:10,y:7},{type:"secondsbar",x:9,color:0x100000,w:22,y:0}];
+
+
 setInterval(()=>{
   let d = new Date();
   let h = String(d.getHours());
