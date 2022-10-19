@@ -156,6 +156,7 @@ setInterval(()=>{
   let timetext = new Text(`${h} ${m}`);
   timetext.draw(11,1,0x101010);
 
+  let O = 11;
 
   if(p%2==0){
     placepixel(O+8,2,0x101010);
