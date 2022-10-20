@@ -134,6 +134,14 @@ function select(face){
 }
 select(alarmClock);
 
+String.prototype.replaceAll = (find,replace)=>{
+  const escapeRegExp = string =>{
+    return string.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+  };
+  return this.replace(new RegExp(escapeRegExp(find),'g'),replace);
+};
+
+
 setInterval(()=>{
   let d = new Date();
   let h = String(d.getHours());
@@ -142,15 +150,22 @@ setInterval(()=>{
   let day = String(d.getDate());
   let dofw =d.getDay();
   
+  if(h.length == 1)
+    h = "0"+h;
+  if(m.length == 1)
+    m = "0"+m;
+  if(day.length == 1)
+    day = "0"+day;
   for(let i = 0; i<channel.count;i++){
     colors[i] = 0x000000;
   }
   let used = [];
+  let index = 0;
   alarmClock.forEach(el=>{
     if(el.active && (el.active%p!=0)) return;
     switch(el.type){
       case "image":
-        let index = used.push(new Image(el.data,el.x,el.y,el.c))-1;
+        index = used.push(new Image(el.data,el.x,el.y,el.c))-1;
         switch(el.imageType){
           case "absolute":
             used[index].drawAbsolute();
@@ -164,7 +179,8 @@ setInterval(()=>{
         }
         break;
       case "text":
-        let index = used.push(new Text(el.indicator.replaceAll('d',day).replaceAll('h',h).replaceAll('m',m).replaceAll('s',s).replaceAll('w',dofw),el.gap))-1;
+        console.log(el.indicator);
+        index = used.push(new Text(el.indicator.replaceAll('d',day).replaceAll('h',h).replaceAll('m',m).replaceAll('s',s).replaceAll('w',dofw),el.gap))-1;
         switch(el.imageType){
           case "color":
             used[index].draw(el.x,el.y,el.color);
