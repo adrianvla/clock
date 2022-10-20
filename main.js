@@ -163,7 +163,10 @@ setInterval(()=>{
   let used = [];
   let index = 0;
   alarmClock.forEach(el=>{
-    //if(el.active && ((el.active%p)!=0)) return;
+    if(el.active){
+      if((p%el.active)==0){
+      }else{return;}
+    }
     switch(el.type){
       case "image":
         index = used.push(new Image(el.data,el.x,el.y,el.color))-1;
