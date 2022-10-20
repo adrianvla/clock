@@ -127,7 +127,7 @@ class Text{
 
 let p = 0;
 
-let alarmClock = [{type:"image",data:calendar,x:0,y:0,imageType:"absolute"},{type:"text",indicator:"d",textType:"hole",x:1,y:2,gap:0},{type:"text",indicator:"h m",textType:"color",color:0x101010,x:11,y:1},{type:"image",data:[[0],[0xffffff],[0],[0xffffff],[0]],imageType:"normal",color:0x101010,x:19,y:1,active:2},{type:"weekday",gap:1,w:2,x:10,y:7,accentColor:0x202005,bgColor:0x020202},{type:"bar",barType:"bar",shows:60,x:9,color:0x101010,w:22,y:0,bgColor:0}];
+let alarmClock = [{type:"image",data:calendar,x:0,y:0,imageType:"absolute"},{type:"text",indicator:"d",textType:"hole",x:1,y:2,gap:0},{type:"text",indicator:"h m",textType:"color",color:0x101010,x:11,y:1},{type:"image",data:[[0],[0xffffff],[0],[0xffffff],[0]],imageType:"normal",color:0x101010,x:19,y:1,active:2},{type:"weekday",gap:1,w:2,x:10,y:7,accentColor:0x202005,bgColor:0x020202},{type:"bar",barType:"bar",shows:60,x:9,color:0x101010,w:22,y:0,bgColor:0x020202}];
 let selected = [];
 function select(face){
   selected = face;
@@ -166,13 +166,12 @@ setInterval(()=>{
     //if(el.active && ((el.active%p)!=0)) return;
     switch(el.type){
       case "image":
-        index = used.push(new Image(el.data,el.x,el.y,el.c))-1;
+        index = used.push(new Image(el.data,el.x,el.y,el.color))-1;
         switch(el.imageType){
           case "absolute":
             used[index].drawAbsolute();
             break;
           case "normal":
-            //console.log('drawing',el.data);
             used[index].draw();
             break;
           case "hole":
@@ -228,7 +227,6 @@ setInterval(()=>{
         break;
     }
   });
-
   /*
 
   let calendarImg = new Image(calendar,0,0,0);
