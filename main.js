@@ -127,8 +127,12 @@ class Text{
 
 let p = 0;
 
-let alarmClock = [{type:"image",data:calendar,x:0,y:0,imageType:"absolute"},{type:"text",indicator:"d",textType:"negative",x:1,y:2},{type:"text",indicator:"h m",textType:"color",color:0x101010,x:11,y:1},{type:"image",data:[[0],[0xffffff],[0],[0xffffff],[0]],imageType:"normal",color:0x101010,x:19,y:1,active:0.5},{type:"weekday",gap:1,w:2,x:10,y:7},{type:"secondsbar",x:9,color:0x100000,w:22,y:0}];
-
+let alarmClock = [{type:"image",data:calendar,x:0,y:0,imageType:"absolute"},{type:"text",indicator:"d",textType:"hole",x:1,y:2,gap:0},{type:"text",indicator:"h m",textType:"color",color:0x101010,x:11,y:1},{type:"image",data:[[0],[0xffffff],[0],[0xffffff],[0]],imageType:"normal",color:0x101010,x:19,y:1,active:0.5},{type:"weekday",gap:1,w:2,x:10,y:7},{type:"secondsbar",x:9,color:0x100000,w:22,y:0,bgColor:0x020202}];
+let selected = [];
+function select(face){
+  selected = face;
+}
+select(alarmClock);
 
 setInterval(()=>{
   let d = new Date();
@@ -141,6 +145,41 @@ setInterval(()=>{
   for(let i = 0; i<channel.count;i++){
     colors[i] = 0x000000;
   }
+  let used = [];
+  alarmClock.forEach(el=>{
+    switch(el.type){
+      case "image":
+        let index = used.push(new Image(el.data,el.x,el.y,el.c))-1;
+        switch(el.imageType){
+          case "absolute":
+            used[index].drawAbsolute();
+            break;
+          case "normal":
+            used[index].draw();
+            break;
+          case "hole":
+            used[index].drawHole();
+            break;
+        }
+        break;
+      case "text":
+        let index = used.push(new Text(el.indicator.replaceAll('d',day).replaceAll('h',h).replaceAll('m',m).replaceAll('s',s).replaceAll('w',dofw),el.gap))-1;
+        switch(el.imageType){
+          case "normal":
+            used[index].draw(el.x,el.y,el.c);
+            break;
+          case "hole":
+            used[index].drawHole(el.x,el.y);
+            break;
+        }
+        break;
+      
+
+    }
+  });
+
+  /*
+
   let calendarImg = new Image(calendar,0,0,0);
   calendarImg.drawAbsolute();
 
@@ -189,7 +228,7 @@ setInterval(()=>{
       //placepixel(Q+2,7,0x050505);
     }
   }
-
+  */
   ws281x.render();
   p++;
 },500);
