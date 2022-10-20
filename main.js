@@ -127,20 +127,21 @@ class Text{
 
 let p = 0;
 
-let alarmClock = [{type:"image",data:calendar,x:0,y:0,imageType:"absolute"},{type:"text",indicator:"d",textType:"hole",x:1,y:2,gap:0},{type:"text",indicator:"h m",textType:"color",color:0x101010,x:11,y:1},{type:"image",data:[[0],[0xffffff],[0],[0xffffff],[0]],imageType:"normal",color:0x101010,x:19,y:1,active:2},{type:"weekday",gap:1,w:2,x:10,y:7,accentColor:0x202005,bgColor:0x020202},{type:"bar",barType:"pixel",shows:60,x:9,color:0x100000,w:22,y:0,bgColor:0x020202}];
+let alarmClock = [{type:"image",data:calendar,x:0,y:0,imageType:"absolute"},{type:"text",indicator:"d",textType:"hole",x:1,y:2,gap:0},{type:"text",indicator:"h m",textType:"color",color:0x101010,x:11,y:1},{type:"image",data:[[0],[0xffffff],[0],[0xffffff],[0]],imageType:"normal",color:0x101010,x:19,y:1,active:2},{type:"weekday",gap:1,w:2,x:10,y:7,accentColor:0x202005,bgColor:0x020202},{type:"bar",barType:"bar",shows:60,x:9,color:0x101010,w:22,y:0,bgColor:0}];
 let selected = [];
 function select(face){
   selected = face;
 }
 select(alarmClock);
 
-String.prototype.replaceAll = (find,replace)=>{
-  const escapeRegExp = string =>{
-    return string.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
-  };
-  return this.replace(new RegExp(escapeRegExp(find),'g'),replace);
+String.prototype.replaceAll = (search,replace)=>{
+  console.log(this,search,replace);
+  var target=this;
+  return target.split(search).join(replace);
 };
-
+function rA(w,s,r){
+  return w.split(s).join(r);
+}
 
 setInterval(()=>{
   let d = new Date();
@@ -162,7 +163,7 @@ setInterval(()=>{
   let used = [];
   let index = 0;
   alarmClock.forEach(el=>{
-    if(el.active && (el.active%p!=0)) return;
+    //if(el.active && ((el.active%p)!=0)) return;
     switch(el.type){
       case "image":
         index = used.push(new Image(el.data,el.x,el.y,el.c))-1;
@@ -171,6 +172,7 @@ setInterval(()=>{
             used[index].drawAbsolute();
             break;
           case "normal":
+            //console.log('drawing',el.data);
             used[index].draw();
             break;
           case "hole":
@@ -179,10 +181,12 @@ setInterval(()=>{
         }
         break;
       case "text":
-        console.log(el.indicator);
-        index = used.push(new Text(el.indicator.replaceAll('d',day).replaceAll('h',h).replaceAll('m',m).replaceAll('s',s).replaceAll('w',dofw),el.gap))-1;
-        switch(el.imageType){
+        let txt = rA(rA(rA(rA(rA(el.indicator,'d',day),'h',h),'m',m),'s',s),'w',dofw);
+        //console.log(txt);
+        index = used.push(new Text(txt,el.gap))-1;
+        switch(el.textType){
           case "color":
+            //console.log('drawing',txt,'in color',el.color);
             used[index].draw(el.x,el.y,el.color);
             break;
           case "hole":
