@@ -127,7 +127,7 @@ class Text{
 
 let p = 0;
 
-let alarmClock = [{type:"image",data:calendar,x:0,y:0,imageType:"absolute"},{type:"text",indicator:"d",textType:"hole",x:1,y:2,gap:0},{type:"text",indicator:"h m",textType:"color",color:0x101010,x:11,y:1},{type:"image",data:[[0],[0xffffff],[0],[0xffffff],[0]],imageType:"normal",color:0x101010,x:19,y:1,active:0.5},{type:"weekday",gap:1,w:2,x:10,y:7,accentColor:0x202005,bgColor:0x020202},{type:"bar",barType:"pixel",shows:"seconds",x:9,color:0x100000,w:22,y:0,bgColor:0x020202}];
+let alarmClock = [{type:"image",data:calendar,x:0,y:0,imageType:"absolute"},{type:"text",indicator:"d",textType:"hole",x:1,y:2,gap:0},{type:"text",indicator:"h m",textType:"color",color:0x101010,x:11,y:1},{type:"image",data:[[0],[0xffffff],[0],[0xffffff],[0]],imageType:"normal",color:0x101010,x:19,y:1,active:0.5},{type:"weekday",gap:1,w:2,x:10,y:7,accentColor:0x202005,bgColor:0x020202},{type:"bar",barType:"pixel",shows:60,x:9,color:0x100000,w:22,y:0,bgColor:0x020202}];
 let selected = [];
 function select(face){
   selected = face;
@@ -187,11 +187,24 @@ setInterval(()=>{
           }
         }
         break;
-      case "secondsbar":
-        for(let i = 0;i<22;i++){
-          placepixel(i+9,0,0x020202);
+      case "bar":
+        switch(el.barType){
+          case "pixel":
+            for(let i = 0;i<el.w;i++){
+              placepixel(i+el.x,el.y,el.bgColor);
+            }
+            placepixel(Math.floor(Number(s)*(el.w/el.shows))+el.x,el.y,el.color);
+            break;
+          case "bar":
+            for(let i = 0;i<el.w;i++){
+              if(i<Math.floor(Number(s)*(el.w/el.shows)))
+                placepixel(i+el.x,el.y,el.color);
+              else
+                placepixel(i+el.x,el.y,el.bgColor);
+            }
+            break;
         }
-        placepixel(Math.floor(Number(s)*(22/60))+9,0,0x100000);
+        break;
     }
   });
 
