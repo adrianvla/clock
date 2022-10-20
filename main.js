@@ -127,7 +127,7 @@ class Text{
 
 let p = 0;
 
-let alarmClock = [{type:"image",data:calendar,x:0,y:0,imageType:"absolute"},{type:"text",indicator:"d",textType:"hole",x:1,y:2,gap:0},{type:"text",indicator:"h m",textType:"color",color:0x101010,x:11,y:1},{type:"image",data:[[0],[0xffffff],[0],[0xffffff],[0]],imageType:"normal",color:0x101010,x:19,y:1,active:0.5},{type:"weekday",gap:1,w:2,x:10,y:7},{type:"secondsbar",x:9,color:0x100000,w:22,y:0,bgColor:0x020202}];
+let alarmClock = [{type:"image",data:calendar,x:0,y:0,imageType:"absolute"},{type:"text",indicator:"d",textType:"hole",x:1,y:2,gap:0},{type:"text",indicator:"h m",textType:"color",color:0x101010,x:11,y:1},{type:"image",data:[[0],[0xffffff],[0],[0xffffff],[0]],imageType:"normal",color:0x101010,x:19,y:1,active:0.5},{type:"weekday",gap:1,w:2,x:10,y:7,accentColor:0x202005,bgColor:0x020202},{type:"bar",barType:"pixel",shows:"seconds",x:9,color:0x100000,w:22,y:0,bgColor:0x020202}];
 let selected = [];
 function select(face){
   selected = face;
@@ -165,16 +165,33 @@ setInterval(()=>{
       case "text":
         let index = used.push(new Text(el.indicator.replaceAll('d',day).replaceAll('h',h).replaceAll('m',m).replaceAll('s',s).replaceAll('w',dofw),el.gap))-1;
         switch(el.imageType){
-          case "normal":
-            used[index].draw(el.x,el.y,el.c);
+          case "color":
+            used[index].draw(el.x,el.y,el.color);
             break;
           case "hole":
             used[index].drawHole(el.x,el.y);
             break;
         }
         break;
-      
-
+      case "weekday":
+        for(let i = 0;i<7;i++){
+          let Q = (i*(el.gap+el.w))+el.x;
+          if(i+1 == dofw){
+            for(let j = 0;j<el.w;j++){
+              placepixel(Q+j,el.y,el.accentColor);
+            }
+          }else{
+            for(let j = 0;j<el.w;j++){
+              placepixel(Q+j,el.y,el.bgColor);
+            }
+          }
+        }
+        break;
+      case "secondsbar":
+        for(let i = 0;i<22;i++){
+          placepixel(i+9,0,0x020202);
+        }
+        placepixel(Math.floor(Number(s)*(22/60))+9,0,0x100000);
     }
   });
 
