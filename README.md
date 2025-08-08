@@ -12,7 +12,7 @@ You don't have to worry about the built-in clock in Raspberry-Pi Zero slightly c
 ### Widgets
 
 Widgets that are provided out-of-the-box:
- - Days of Week (with bars that look like this if you're on a Saturday: -- -- -- -- -- ▓▓ --)
+ - Days of Week (with bars that look like this if you're on a Saturday: ░░ ░░ ░░ ░░ ░░ ▓▓ ░░)
  - Calendar (indicates the current date with a nice calendar-like background)
  - Digital Time: 3x5 font, HH : MM (: SS, configurable)
  - Big Digital Time: 5x5 font, HH : MM
