@@ -183,8 +183,8 @@ Promise.all(
     getImageFiles('./src/assets/icons').map(getHexPixels)
 ).then(r=>{});
 
-const apiKey = 'ca2d07457d4c4e199d5130051250508';
-const city = 'Geneva';
+const apiKey = 'PUT_YOUR_OWN_API_KEY_HERE';
+const city = 'YOUR_CITY';
 
 let weatherData = null;
 let astronomyData = null;

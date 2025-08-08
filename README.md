@@ -38,13 +38,19 @@ With the help of the control panel you can do a lot of things:
 ![Screen configuration](./c2.png)
 
 # How to Use
+
+Get an API key from weatherapi.com
+Paste it in the file /code/src/widgets/weather/weather.js (WIP, will be moved to the Control Panel)
+
+Put your RSS feeds in the file /code/src/widgets/rssFeed/rss.js (WIP, will also be moved to be edited in the Control Panel)
+
 Create a systemctl service to autorun
 ```
 #!/bin/bash
 cd <the directory you're doing to put the contents of the code folder in>
 sudo node src/main.js
 ```
-named script-startup.service
+and name it script-startup.service
 
 And you're good to go.
 

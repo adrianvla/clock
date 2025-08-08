@@ -1,7 +1,7 @@
 import fetch from 'node-fetch';
 import { parseStringPromise } from 'xml2js';
 import { changeToScreen, getScreenNameByWidgetType, getScreenByName } from '../../graphics/render.js';
-let providers = ["https://go.x2u.in/proxy?email=admin@morisinc.net&apiKey=301be823&url=https://lenta.ru/rss","https://www.nhk.or.jp/rss/news/cat0.xml"];
+let providers = [<PUT YOUR PROVIDERS HERE>];
 
 
 function parseRSS(xml) {
