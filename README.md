@@ -37,4 +37,19 @@ With the help of the control panel you can do a lot of things:
 ![Main page of Control Panel](./c1.png)
 ![Screen configuration](./c2.png)
 
+# How to Use
+Create a systemctl service to autorun
+```
+#!/bin/bash
+cd <the directory you're doing to put the contents of the code folder in>
+sudo node src/main.js
+```
+named script-startup.service
+
+And you're good to go.
+
+To connect the ws281x screen, connect it to GPIO 18, or change the /code/src/utils/driver.js file to another pin.
+
+
+
 License: MIT
