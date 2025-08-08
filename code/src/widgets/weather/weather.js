@@ -34,6 +34,7 @@ import { PNG } from 'pngjs';
 import fs from 'fs';
 import path from 'path';
 import fetch from 'node-fetch';
+import {getTime} from '../../utils/time.js';
 
 
 let icons = {};
@@ -170,6 +171,104 @@ function getHexPixels(imagePath) {
     }
 }
 
+const apiKey = '<YOUR API KEY HERE>';
+const city = 'YOUR CITY HERE';
+
+let weatherData = null;
+let astronomyData = null;
+let weatherAlerts = null;
+let isNight = false;
+
+let sun1 = [[]] || icons['weather-0'];
+let sun2 = [[]] || icons['weather-0'];
+
+function getMoonIcon(){
+    const base = icons['weather-5'];
+    if (!base || !Array.isArray(base) || base.length === 0) return base || icons['weather-0'];
+
+    // Need astronomy data with moon illumination / phase
+    let phaseName = null;
+    let illuminationPercent = null;
+    try {
+        if (astronomyData && astronomyData.astronomy && astronomyData.astronomy.astro) {
+            const astro = astronomyData.astronomy.astro;
+            phaseName = astro.moon_phase || null;
+            illuminationPercent = astro.moon_illumination !== undefined ? parseFloat(astro.moon_illumination) : null;
+        }
+    } catch (_) { /* ignore */ }
+    console.log("Moon phase data:", phaseName, "illumination:", illuminationPercent);
+
+    // If we can't determine phase, just return full moon icon as before
+    if (illuminationPercent == null || isNaN(illuminationPercent) || phaseName == null) return base;
+
+    // Clamp illumination
+    illuminationPercent = Math.max(0, Math.min(100, illuminationPercent));
+
+    const height = base.length;
+    const width = base[0].length;
+    const dimFactor = 0.2; // keep 20% brightness on dimmed side
+
+    // Determine waxing vs waning (simple heuristic based on phase name)
+    const waxing = /Waxing|First Quarter/i.test(phaseName) && !/Waning|Last Quarter/i.test(phaseName);
+    const waning = /Waning|Last Quarter/i.test(phaseName) && !/Waxing|First Quarter/i.test(phaseName);
+    // For New / Full we'll treat separately
+
+    // Number of lit columns (0..width)
+    const litCols = Math.round((illuminationPercent / 100) * width);
+
+    // Special cases
+    if (/New Moon/i.test(phaseName) || litCols === 0) {
+        // Entirely dim
+        return base.map(row => row.map(px => dimPixel(px, dimFactor)));
+    }
+    if (/Full Moon/i.test(phaseName) || litCols >= width) {
+        return base; // full brightness
+    }
+
+    // Decide which side is illuminated
+    // Waxing: light grows on the right; Waning: light shrinks on the right (so left illuminated)
+    // If neither (quarter) use naming: First Quarter -> right half lit, Last Quarter -> left half lit
+    let lightOnRight;
+    if (waxing) lightOnRight = true; else if (waning) lightOnRight = false; else if (/First Quarter/i.test(phaseName)) lightOnRight = true; else if (/Last Quarter/i.test(phaseName)) lightOnRight = false; else lightOnRight = true; // default
+
+    const result = [];
+    for (let y=0; y<height; y++) {
+        const row = [];
+        for (let x=0; x<width; x++) {
+            const colIndex = x; // 0 .. width-1 left->right
+            let lit;
+            if (lightOnRight) {
+                // Rightmost litCols columns are lit
+                lit = colIndex >= (width - litCols);
+            } else {
+                // Leftmost litCols columns are lit
+                lit = colIndex < litCols;
+            }
+            const original = base[y][x];
+            if (original === 0x000000) {
+                row.push(original);
+            } else if (lit) {
+                row.push(original);
+            } else {
+                row.push(dimPixel(original, dimFactor));
+            }
+        }
+        result.push(row);
+    }
+    return result;
+}
+
+function dimPixel(pixel, factor){
+    const r = (pixel >> 16) & 0xFF;
+    const g = (pixel >> 8) & 0xFF;
+    const b = pixel & 0xFF;
+    const a = (pixel >> 24) & 0xFF; // may be 0
+    const nr = Math.round(r * factor);
+    const ng = Math.round(g * factor);
+    const nb = Math.round(b * factor);
+    return (a << 24) | (nr << 16) | (ng << 8) | nb;
+}
+
 function getImageFiles(dir) {
     return fs.readdirSync(dir)
     .filter(file => {
@@ -179,16 +278,39 @@ function getImageFiles(dir) {
     .map(file => path.join(dir, file)); // Full path
 }
 // console.log("Image Files", getImageFiles('./src/assets/icons'));
+
+function checkMoonPhase(){
+    // Determine if it's night using astronomyData (if available)
+    let sunriseStr = astronomyData?.astronomy?.astro?.sunrise;
+    let sunsetStr = astronomyData?.astronomy?.astro?.sunset;
+    if (sunriseStr && sunsetStr) {
+        // Parse sunrise/sunset as today in local time
+        // sunriseStr/sunsetStr are like "06:26 AM"
+        const now = new Date();
+        const [srHour, srMin, srPeriod] = sunriseStr.match(/(\d+):(\d+)\s*(AM|PM)/i).slice(1);
+        const [ssHour, ssMin, ssPeriod] = sunsetStr.match(/(\d+):(\d+)\s*(AM|PM)/i).slice(1);
+        let sunrise = new Date(now.getFullYear(), now.getMonth(), now.getDate(),
+            (parseInt(srHour) % 12) + (srPeriod.toUpperCase() === 'PM' ? 12 : 0), parseInt(srMin), 0, 0);
+        let sunset = new Date(now.getFullYear(), now.getMonth(), now.getDate(),
+            (parseInt(ssHour) % 12) + (ssPeriod.toUpperCase() === 'PM' ? 12 : 0), parseInt(ssMin), 0, 0);
+    // Set isNight boolean explicitly
+    isNight = (now < sunrise || now > sunset);
+        console.log("Is it night?", isNight, "now:", now.toLocaleTimeString(), "sunrise:", sunrise.toLocaleTimeString(), "sunset:", sunset.toLocaleTimeString());
+    }
+    if (isNight) {
+        sun1 = getMoonIcon();
+        sun2 = getMoonIcon();
+    } else {
+        sun1 = icons['weather-1'];
+        sun2 = icons['weather-3'];
+    }
+}
+
 Promise.all(
     getImageFiles('./src/assets/icons').map(getHexPixels)
 ).then(r=>{});
+setInterval(checkMoonPhase, 60 * 60 * 1000); // every 1 hour
 
-const apiKey = 'PUT_YOUR_OWN_API_KEY_HERE';
-const city = 'YOUR_CITY';
-
-let weatherData = null;
-let astronomyData = null;
-let weatherAlerts = null;
 
 async function fetchWeather() {
     const currentWeatherRequestURL = `http://api.weatherapi.com/v1/current.json?key=${apiKey}&q=${city}&aqi=no`;
@@ -217,6 +339,7 @@ async function fetchWeather() {
             weatherAlerts = null;
         }
         // console.log('Weather, astronomy, and alerts updated', weatherData, astronomyData, weatherAlerts);
+        console.log("Weather, astronomy, and alerts updated");
     } catch (e) {
         console.error('Error fetching weather data:', e);
         weatherData = null;
@@ -226,7 +349,7 @@ async function fetchWeather() {
 }
 
 // Fetch weather at startup
-fetchWeather();
+fetchWeather().then(checkMoonPhase);
 // Fetch weather every 10 minutes
 setInterval(fetchWeather, 10 * 60 * 1000);
 
@@ -282,12 +405,42 @@ function oscillate(){
 }
 
 
+
+
 const iconFunctions = {
     1000: function Sunny(){
-        return icons['weather-1'];
+        // Daytime: just show sun (sun1 may hold sun icon)
+        if(!isNight){
+            return sun1 || icons['weather-1'] || [[]];
+        }
+        // Night: show moon plus shimmering stars
+        let base = getMoonIcon();
+        if(!base) return sun1 || icons['weather-5'] || [[]];
+
+        // Predefined star positions (centers) within 8x8
+        // Avoid overlapping; choose visually spaced spots
+        const starPositions = [ {x:1,y:1}, {x:5,y:2}, {x:3,y:5} ];
+        const starVariants = ['weather-6','weather-7','weather-8'];
+        let composed = base;
+        const now = Date.now();
+        starPositions.forEach((pos, idx)=>{
+            const phase = Math.floor((now/1000) + idx*1.3) % 3; // cycle through 3 variants
+            const variantKey = starVariants[phase];
+            const starIcon = icons[variantKey];
+            if(!starIcon) return;
+            // Center of provided star icons is documented at (2,2). We align center to pos.
+            const centerX = 2; // assumed pivot inside star sprite
+            const centerY = 2;
+            const offsetX = pos.x - centerX;
+            const offsetY = pos.y - centerY;
+            // Slight dim for non-peak phases to create shimmer depth
+            const opacity = phase === 2 ? 1 : (phase === 1 ? 0.65 : 0.4);
+            composed = overlayImage(composed, starIcon, offsetX, offsetY, opacity);
+        });
+        return composed;
     },
     1003: function PartlyCloudy(){
-        return overlayImage(overlayImage(icons['weather-3'],  icons['weather-2'], Math.floor(((Date.now()/400) % 16) - 8), 0, 0.2), icons['weather-4'], 0, 0, 0.2);
+        return overlayImage(overlayImage(sun2,  icons['weather-2'], Math.floor(((Date.now()/400) % 16) - 8), 0, 0.2), icons['weather-4'], 0, 0, 0.2);
     },
     1006: function Cloudy(){
         return icons['weather-12'];
@@ -299,19 +452,19 @@ const iconFunctions = {
         return icons['weather-9'];
     },
     1063: function PatchyRainPossible(){
-        return overlayImage(overlayImage(overlayImage(icons['weather-3'],  icons['weather-2'], Math.floor(((Date.now()/400) % 16) - 8), -3, 0.3), icons['weather-4'], 0, 0, 0.2), icons['weather-13'],0,0, 0.7);
+        return overlayImage(overlayImage(overlayImage(sun2,  icons['weather-2'], Math.floor(((Date.now()/400) % 16) - 8), -3, 0.3), icons['weather-4'], 0, 0, 0.2), icons['weather-13'],0,0, 0.7);
     },
     1066: function PatchySnowPossible(){
-        return overlayImage(overlayImage(overlayImage(icons['weather-3'],  icons['weather-2'], Math.floor(((Date.now()/400) % 16) - 8), -3, 0.3), icons['weather-4'], 0, 0, 0.2), icons['weather-14'],0,0, 0.7);
+        return overlayImage(overlayImage(overlayImage(sun2,  icons['weather-2'], Math.floor(((Date.now()/400) % 16) - 8), -3, 0.3), icons['weather-4'], 0, 0, 0.2), icons['weather-14'],0,0, 0.7);
     },
     1069: function PatchySleetPossible(){
-        return overlayImage(overlayImage(overlayImage(icons['weather-3'],  icons['weather-2'], Math.floor(((Date.now()/400) % 16) - 8), -3, 0.3), icons['weather-4'], 0, 0, 0.2), icons['weather-16'],0,0, 0.7);
+        return overlayImage(overlayImage(overlayImage(sun2,  icons['weather-2'], Math.floor(((Date.now()/400) % 16) - 8), -3, 0.3), icons['weather-4'], 0, 0, 0.2), icons['weather-16'],0,0, 0.7);
     },
     1072: function PatchyFreezingDrizzlePossible(){
         return overlayImage(icons['weather-17'], icons['weather-2'], 0, -3, 1);
     },
     1087: function ThunderyOutbreaksPossible(){
-        return overlayImage(overlayImage(overlayImage(icons['weather-3'],  icons['weather-2'], Math.floor(((Date.now()/400) % 16) - 8), -3, 0.3), icons['weather-4'], 0, 0, 0.2), icons['weather-18'],0,0, 0.7);
+        return overlayImage(overlayImage(overlayImage(sun2,  icons['weather-2'], Math.floor(((Date.now()/400) % 16) - 8), -3, 0.3), icons['weather-4'], 0, 0, 0.2), icons['weather-18'],0,0, 0.7);
     },
     1114: function BlowingSnow(){
         // Update snow particles only every 300ms
