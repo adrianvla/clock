@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Clock Control Panel</title>
+    <link rel="stylesheet" href="/interface/clock_panel.css">
+</head>
+<body>
+    <div class="layout">
+        <nav class="navbar">
+            <h2>Navigation</h2>
+            <a href="/panel">Control Panel</a>
+            <a href="/widgets">Widget Editor</a>
+            <a href="/screen-editor">Screen Editor</a>
+            <form method="post" action="/logout" style="margin:0;padding:0;"><button type="submit">Logout</button></form>
+        </nav>
+        <div class="main-content">
+            <div class="container">
+                <h1>Clock Control Panel</h1>
+                <canvas id="clockCanvas" width="320" height="80"></canvas>
+                <div id="status">Connecting...</div>
+                <form class="panel-form" id="tzform">
+                    <label for="timezone">Set Timezone:</label>
+                    <input type="text" id="timezone" name="timezone" value="Etc/UTC">
+                    <button type="submit">Set</button>
+                </form>
+                <div class="panel-form"><div id="result"></div></div>
+                <form class="panel-form" id="credsForm">
+                    <label for="newUsername">Change Username:</label>
+                    <input type="text" id="newUsername" name="newUsername" required>
+                    <label for="newPassword">Change Password:</label>
+                    <input type="password" id="newPassword" name="newPassword" required>
+                    <button type="submit">Update Credentials</button>
+                    <div id="credsResult"></div>
+                </form>
+                <form class="panel-form" id="brightnessForm">
+                    <label for="brightnessSlider">Brightness:</label>
+                    <input type="range" id="brightnessSlider" min="0" max="1" step="0.01">
+                    <span id="brightnessValue"></span>
+                    <button type="submit">Set Brightness</button>
+                    <div id="brightnessResult"></div>
+                </form>
+                <div class="panel-form">
+                    <button id="softRestartBtn" type="button">Soft Restart</button>
+                    <button id="hardRestartBtn" type="button">Hard Restart</button>
+                    <div id="restartMsg"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        // --- Clock Display ---
+        const canvas = document.getElementById('clockCanvas');
+        const ctx = canvas.getContext('2d');
+        const pixelSize = 10;
+        const width = 32, height = 8;
+        function drawPixel(x, y, color) {
+            ctx.fillStyle = color;
+            ctx.fillRect(x * pixelSize, y * pixelSize, pixelSize, pixelSize);
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(x * pixelSize, y * pixelSize, pixelSize, pixelSize);
+        }
+        function clearDisplay() {
+            ctx.fillStyle = '#222';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+        clearDisplay();
+        // WebSocket connection
+        let ws;
+        function connect() {
+            ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws/clock');
+            ws.onopen = () => {
+                document.getElementById('status').innerText = 'Connected';
+            };
+            ws.onclose = () => {
+                document.getElementById('status').innerText = 'Disconnected. Reconnecting...';
+                setTimeout(connect, 2000);
+            };
+            ws.onerror = () => {
+                document.getElementById('status').innerText = 'Error. Reconnecting...';
+                ws.close();
+            };
+            ws.onmessage = (event) => {
+                const msg = JSON.parse(event.data);
+                if (msg.type === 'frame') {
+                    clearDisplay();
+                    for (const p of msg.pixels) {
+                        drawPixel(p.x, p.y, p.color);
+                    }
+                }
+            };
+        }
+        connect();
+
+        // --- Timezone Form ---
+        document.getElementById('tzform').onsubmit = async function(e) {
+            e.preventDefault();
+            const tz = document.getElementById('timezone').value;
+            const res = await fetch('/api/timezone', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ timezone: tz })
+            });
+            const data = await res.json();
+            document.getElementById('result').innerText = data.success ? 'Timezone set!' : data.error;
+        };
+
+        // Set initial timezone value from server
+        fetch('/api/state').then(r => r.json()).then(state => {
+            document.getElementById('timezone').value = state.timezone;
+        });
+        // --- Credentials Form ---
+        document.getElementById('credsForm').onsubmit = async function(e) {
+            e.preventDefault();
+            const newUsername = document.getElementById('newUsername').value;
+            const newPassword = document.getElementById('newPassword').value;
+            const res = await fetch('/api/credentials', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: newUsername, password: newPassword })
+            });
+            const data = await res.json();
+            document.getElementById('credsResult').innerText = data.success ? 'Credentials updated!' : (data.error || 'Failed to update credentials');
+        };
+        // --- Brightness Slider ---
+        async function updateBrightnessUI() {
+            const res = await fetch('/api/brightness');
+            const data = await res.json();
+            document.getElementById('brightnessSlider').value = data.brightness;
+            document.getElementById('brightnessValue').innerText = data.brightness;
+        }
+        document.getElementById('brightnessSlider').oninput = function() {
+            document.getElementById('brightnessValue').innerText = this.value;
+        };
+        document.getElementById('brightnessForm').onsubmit = async function(e) {
+            e.preventDefault();
+            const val = parseFloat(document.getElementById('brightnessSlider').value);
+            const res = await fetch('/api/brightness', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ brightness: val })
+            });
+            const data = await res.json();
+            document.getElementById('brightnessResult').innerText = data.success ? 'Brightness set!' : (data.error || 'Failed to set brightness');
+        };
+        updateBrightnessUI();
+        // --- Restart Buttons ---
+        document.getElementById('softRestartBtn').onclick = async function() {
+            document.getElementById('restartMsg').innerText = 'Restarting (soft)...';
+            const res = await fetch('/api/restart?type=soft', { method: 'POST' });
+            if (res.ok) {
+                document.getElementById('restartMsg').innerText = 'Soft restart triggered.';
+            } else {
+                document.getElementById('restartMsg').innerText = 'Failed to restart.';
+            }
+        };
+        document.getElementById('hardRestartBtn').onclick = async function() {
+            document.getElementById('restartMsg').innerText = 'Restarting (hard)...';
+            const res = await fetch('/api/restart?type=hard', { method: 'POST' });
+            if (res.ok) {
+                document.getElementById('restartMsg').innerText = 'Hard restart triggered.';
+            } else {
+                document.getElementById('restartMsg').innerText = 'Failed to restart.';
+            }
+        };
+    </script>
+</body>
+</html>

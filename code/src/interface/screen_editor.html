@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Screen Editor</title>
+    <link rel="stylesheet" href="/interface/clock_panel.css">
+    <style>
+        .screen-editor-layout {
+            display: flex;
+            min-height: 100vh;
+        }
+        .widget-palette {
+            width: 220px;
+            background: #f8f8f8;
+            border-right: 1px solid #ddd;
+            padding: 20px 10px;
+            box-sizing: border-box;
+        }
+        .widget-palette h3 {
+            margin-top: 0;
+        }
+        .widget-item {
+            background: #fff;
+            border: 1px solid #bbb;
+            border-radius: 4px;
+            padding: 8px 12px;
+            margin-bottom: 10px;
+            cursor: grab;
+            user-select: none;
+        }
+        .screen-canvas {
+            flex: 1 1 auto;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            padding: 30px 0;
+        }
+        .canvas-grid {
+            position: relative;
+            width: calc(32 * 18px + 31 * 2px);
+            height: calc(8 * 18px + 7 * 2px);
+            background: #222;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            margin-bottom: 20px;
+        }
+        .canvas-cell {
+            position: absolute;
+            width: 15px;
+            height: 15px;
+            background: #333;
+            border-radius: 2px;
+            box-sizing: border-box;
+            z-index:4;
+            opacity:0.2;
+
+        }
+        .canvas-cell.widget {
+            background: #4caf50;
+            border: 2px solid #fff;
+            z-index: 2;
+            opacity:1;
+        }
+        .canvas-cell.widget-area {
+            background: #4caf50;
+            border: 2px solid #fff;
+            z-index: 2;
+            opacity:1;
+        }
+        .canvas-cell.drag-over {
+            outline: 2px dashed #2196f3;
+            z-index: 10;
+            opacity:1;
+        }
+        .screen-controls {
+            margin-bottom: 20px;
+        }
+        .widget-label {
+            font-size: 0.7em;
+            color: #fff;
+            text-align: center;
+            width: 100%;
+            position: absolute;
+            top: 2px;
+            left: 0;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="layout">
+        <nav class="navbar">
+            <h2>Navigation</h2>
+            <a href="/panel">Control Panel</a>
+            <a href="/widgets">Widget Editor</a>
+            <a href="/screen-editor">Screen Editor</a>
+            <form method="post" action="/logout" style="margin:0;padding:0;"><button type="submit">Logout</button></form>
+        </nav>
+        <div class="main-content">
+            <div class="screen-editor-layout">
+                <div class="widget-palette">
+                    <h3>Widget Palette</h3>
+                    <div id="widgetList"></div>
+                </div>
+                <div class="screen-canvas">
+                    <div class="screen-controls">
+                        <select id="screenSelect"></select>
+                        <button id="addScreenBtn" type="button">Add Screen</button>
+                        <button id="toggleEnabledBtn" type="button">Toggle Enabled</button>
+                        <button id="saveScreenBtn" type="button">Save Screen</button>
+                    </div>
+                    <div class="canvas-grid" id="canvasGrid"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+    // --- Widget Palette ---
+    let availableWidgets = [];
+    let widgetBBoxMap = {};
+    let currentScreen = null;
+    let screens = [];
+    let placedWidgets = [];
+    let dragWidget = null;
+    let dragOverCell = null;
+
+    async function fetchWidgets() {
+        // List all widget files (flat)
+        const res = await fetch('/api/widgets?tree=1');
+        const data = await res.json();
+    availableWidgets = data.flat.filter(f => f !== 'widget.js' && !f.includes('/'));
+        // Fetch bbox map from backend
+        const bboxRes = await fetch('/api/widgets/bbox');
+        widgetBBoxMap = await bboxRes.json();
+        renderWidgetPalette();
+    }
+
+    function renderWidgetPalette() { // Update dragWidget structure
+        const widgetList = document.getElementById('widgetList');
+        widgetList.innerHTML = '';
+        for (const w of availableWidgets) {
+            const div = document.createElement('div');
+            div.className = 'widget-item';
+            div.textContent = w.replace('.js','');
+            div.draggable = true;
+            div.dataset.widget = w;
+            div.ondragstart = (e) => {
+                dragWidget = { src: w, moveIdx: null };
+                e.dataTransfer.effectAllowed = 'copy';
+            };
+            div.ondragend = () => { 
+                dragWidget = null; 
+            };
+            widgetList.appendChild(div);
+        }
+    }
+
+    // --- Screen List ---
+    async function fetchScreens() {
+        const res = await fetch('/screens/screens.json');
+        screens = await res.json();
+        renderScreenSelect();
+    }
+    function renderScreenSelect() {
+        const sel = document.getElementById('screenSelect');
+        sel.innerHTML = '';
+        for (let i = 0; i < screens.length; i++) {
+            const s = screens[i];
+            const opt = document.createElement('option');
+            opt.value = i;
+            opt.textContent = s.name + (s.enabled === false ? ' (disabled)' : '');
+            sel.appendChild(opt);
+        }
+        sel.onchange = () => {
+            loadScreen(sel.value);
+        };
+        if (screens.length > 0) loadScreen(sel.value || 0);
+    }
+
+    // --- Canvas Grid ---
+    function getWidgetBBox(widget) {
+        // Use the bbox map from backend
+        return widgetBBoxMap[widget.src] || { width: 1, height: 1 };
+    }
+
+    function renderCanvas() {
+        const grid = document.getElementById('canvasGrid');
+        grid.innerHTML = '';
+        // Draw background grid
+        for (let y = 0; y < 8; y++) {
+            for (let x = 0; x < 32; x++) {
+                const cell = document.createElement('div');
+                cell.className = 'canvas-cell';
+                cell.style.left = `${x * 20}px`;
+                cell.style.top = `${y * 20}px`;
+                cell.dataset.x = x;
+                cell.dataset.y = y;
+                cell.ondragover = (e) => {
+                    e.preventDefault();
+                    cell.classList.add('drag-over');
+                    dragOverCell = cell;
+                };
+                cell.ondragleave = () => {
+                    cell.classList.remove('drag-over');
+                    dragOverCell = null;
+                };
+                cell.ondrop = (e) => {
+                    e.preventDefault();
+                    cell.classList.remove('drag-over');
+                    if (dragWidget) {
+                        // If dragWidget is a string, it's a new widget from the palette
+                        // If it's an object, it's a move of an existing widget
+                        let isMove = false;
+                        let moveIdx = -1;
+                        for (let i = 0; i < placedWidgets.length; i++) {
+                            if (placedWidgets[i].src === dragWidget && cell.dataset.dragIdx == i) {
+                                isMove = true;
+                                moveIdx = i;
+                                break;
+                            }
+                        }
+                        const bbox = getWidgetBBox(isMove ? placedWidgets[moveIdx] : { src: dragWidget });
+                        let canPlace = true;
+                        for (let dy = 0; dy < bbox.height; dy++) {
+                            for (let dx = 0; dx < bbox.width; dx++) {
+                                const gx = x + dx;
+                                const gy = y + dy;
+                                if (gx >= 32 || gy >= 8) canPlace = false;
+                                for (let j = 0; j < placedWidgets.length; j++) {
+                                    if (isMove && j === moveIdx) continue;
+                                    const w = placedWidgets[j];
+                                    const wbbox = getWidgetBBox(w);
+                                    if (
+                                        gx >= w.x && gx < w.x + wbbox.width &&
+                                        gy >= w.y && gy < w.y + wbbox.height
+                                    ) {
+                                        canPlace = false;
+                                    }
+                                }
+                            }
+                        }
+                        if (canPlace) {
+                                // if (isMove) {
+                                if (dragWidget.moveIdx !== null) {
+                                    console.log(`Moved widget ${dragWidget.src} to (${x}, ${y})`, isMove, dragWidget);
+                                    placedWidgets[dragWidget.moveIdx].x = x;
+                                    placedWidgets[dragWidget.moveIdx].y = y;
+                                }else{
+                                    placedWidgets.push({ src: dragWidget.src, x, y });
+                                }
+                                // } else if (typeof dragWidget.src === 'string') {
+                                //     placedWidgets.push({ src: dragWidget.src, x, y });
+                                //     console.log(`Placed new widget ${dragWidget.src} at (${x}, ${y})`, dragWidget);
+                                // }
+                            renderCanvas();
+                        }
+                    }
+                };
+                grid.appendChild(cell);
+            }
+        }
+        // Draw widgets as absolute rectangles
+        for (let i = 0; i < placedWidgets.length; i++) {
+            const w = placedWidgets[i];
+            const bbox = getWidgetBBox(w);
+            const widgetDiv = document.createElement('div');
+            widgetDiv.className = 'canvas-cell widget-area';
+            widgetDiv.style.left = `${w.x * 20}px`;
+            widgetDiv.style.top = `${w.y * 20}px`;
+            widgetDiv.style.width = `${bbox.width * 20 - 2}px`;
+            widgetDiv.style.height = `${bbox.height * 20 - 2}px`;
+            widgetDiv.style.zIndex = 2;
+            widgetDiv.style.position = 'absolute';
+            widgetDiv.style.display = 'flex';
+            widgetDiv.style.alignItems = 'center';
+            widgetDiv.style.justifyContent = 'center';
+            widgetDiv.draggable = true;
+            widgetDiv.ondragstart = (e) => {
+                e.dataTransfer.effectAllowed = 'move';
+                widgetDiv.classList.add('dragging');
+                widgetDiv.dataset.dragIdx = i;
+                dragWidget = { src: w.src, moveIdx: i };
+                // Disable pointer events for all widget-areas except the one being dragged
+                document.querySelectorAll('.widget-area').forEach(el => {
+                    if (el !== widgetDiv) el.style.pointerEvents = 'none';
+                });
+            };
+            widgetDiv.ondragend = (e) => {
+                widgetDiv.classList.remove('dragging');
+                delete widgetDiv.dataset.dragIdx;
+                dragWidget = null;
+                // Restore pointer events after drag
+                document.querySelectorAll('.widget-area').forEach(el => el.style.pointerEvents = 'auto');
+            };
+            const label = document.createElement('div');
+            label.className = 'widget-label';
+            label.textContent = (typeof w.src === 'string' ? w.src : String(w.src)).replace('.js','');
+            widgetDiv.appendChild(label);
+            widgetDiv.onclick = () => {
+                if (confirm('Remove this widget?')) {
+                    placedWidgets.splice(i, 1);
+                    renderCanvas();
+                }
+            };
+            grid.appendChild(widgetDiv);
+        }
+    }
+
+    function loadScreen(idx) {
+        currentScreen = screens[idx];
+        placedWidgets = currentScreen.widgets ? currentScreen.widgets.map(w => ({...w})) : [];
+        renderCanvas();
+    }
+
+    document.getElementById('saveScreenBtn').onclick = async () => {
+        if (!currentScreen) return;
+        currentScreen.widgets = placedWidgets.map(w => ({ src: w.src, x: w.x, y: w.y }));
+        // Save to server
+        const res = await fetch('/screens/screens.json', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(screens, null, 2)
+        });
+        if (res.ok) {
+            alert('Screen saved!');
+        } else {
+            alert('Failed to save.');
+        }
+    };
+
+    // Add new screen
+    document.getElementById('addScreenBtn').onclick = () => {
+        const name = prompt('Enter new screen name:');
+        if (!name) return;
+        const newScreen = { name, widgets: [], enabled: true };
+        screens.push(newScreen);
+        renderScreenSelect();
+        document.getElementById('screenSelect').value = screens.length - 1;
+        loadScreen(screens.length - 1);
+    };
+
+    // Toggle enabled state
+    document.getElementById('toggleEnabledBtn').onclick = () => {
+        if (!currentScreen) return;
+        currentScreen.enabled = !currentScreen.enabled;
+        renderScreenSelect();
+    };
+
+    // --- Init ---
+    fetchWidgets();
+    fetchScreens();
+    </script>
+</body>
+</html>

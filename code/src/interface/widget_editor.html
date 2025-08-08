@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+    <link rel="stylesheet" href="/interface/clock_panel.css">
+    <!-- Monaco Editor -->
+    <link rel="stylesheet" data-name="vs/editor/editor.main" href="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.52.2/min/vs/editor/editor.main.min.css">
+</head>
+</head>
+<body>
+    <div class="layout">
+        <nav class="navbar">
+            <h2>Navigation</h2>
+            <a href="/panel">Control Panel</a>
+            <a href="/widgets">Widget Editor</a>
+            <a href="/screen-editor">Screen Editor</a>
+            <form method="post" action="/logout" style="margin:0;padding:0;"><button type="submit">Logout</button></form>
+        </nav>
+        <div class="container">
+            <h1>Widget Editor</h1>
+            <label for="fileSelect">Select widget file:</label>
+            <select id="fileSelect"></select>
+            <div id="fileTree" style="max-height:200px;overflow:auto;border:1px solid #ccc;border-radius:4px;margin-bottom:10px;padding:5px 10px;"></div>
+            <div class="new-file-row">
+                <input type="text" id="newFileName" placeholder="New file name (e.g. myWidget.js)">
+                <button id="createFileBtn" type="button">Create File</button>
+            </div>
+            <button id="fullscreenBtn" type="button" style="flex:0 0 auto;">Fullscreen Editor</button>
+            <div id="editor" style="height:400px;flex:1 1 auto;"></div>
+            <button id="saveBtn">Save</button>
+            <div id="msg"></div>
+        </div>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.52.2/min/vs/loader.min.js"></script>
+    <script>
+        let monacoEditor;
+        let currentFile = null;
+        let readonly = false;
+        const fileSelect = document.getElementById('fileSelect');
+        const saveBtn = document.getElementById('saveBtn');
+        const msg = document.getElementById('msg');
+        const newFileName = document.getElementById('newFileName');
+        const createFileBtn = document.getElementById('createFileBtn');
+
+    // Monaco loader
+    const editorDiv = document.getElementById('editor');
+    const fullscreenBtn = document.getElementById('fullscreenBtn');
+        let isFullscreen = false;
+        fullscreenBtn.onclick = () => {
+            isFullscreen = !isFullscreen;
+            if (isFullscreen) {
+                editorDiv.style.position = 'absolute';
+                editorDiv.style.top = '0';
+                editorDiv.style.left = '0';
+                editorDiv.style.width = '100%';
+                editorDiv.style.height = '100%';
+                editorDiv.style.zIndex = '1000';
+                document.body.style.overflow = 'hidden';
+                fullscreenBtn.textContent = 'Exit Fullscreen';
+                fullscreenBtn.style.position = 'fixed';
+                fullscreenBtn.style.top = '0px';
+                fullscreenBtn.style.right = '0px';
+                fullscreenBtn.style.width = '150px';
+                fullscreenBtn.style.zIndex = '1001';
+            } else {
+                editorDiv.style.position = '';
+                editorDiv.style.top = '';
+                editorDiv.style.left = '';
+                editorDiv.style.width = '';
+                editorDiv.style.height = '400px';
+                editorDiv.style.zIndex = '';
+                document.body.style.overflow = '';
+                fullscreenBtn.textContent = 'Fullscreen Editor';
+                fullscreenBtn.style.position = '';
+                fullscreenBtn.style.top = '';
+                fullscreenBtn.style.right = '';
+                fullscreenBtn.style.width = '';
+                fullscreenBtn.style.zIndex = '';
+            }
+            if (monacoEditor) monacoEditor.layout();
+        };
+        window.require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.52.2/min/vs' } });
+        window.require(['vs/editor/editor.main'], function () {
+            monacoEditor = monaco.editor.create(document.getElementById('editor'), {
+                value: '',
+                language: 'javascript',
+                theme: 'vs-dark',
+                readOnly: true
+            });
+            loadFileList().then(() => {
+                if (fileSelect.options.length > 0) {
+                    fileSelect.selectedIndex = 0;
+                    currentFile = fileSelect.value;
+                    loadFileContent(currentFile);
+                }
+            });
+        });
+
+        let fileListCache = [];
+        let fileTreeCache = {};
+        async function loadFileList() {
+            const res = await fetch('/api/widgets?tree=1');
+            const data = await res.json();
+            fileListCache = data.flat;
+            fileTreeCache = data.tree;
+            fileSelect.innerHTML = '';
+            fileListCache.forEach(f => {
+                const opt = document.createElement('option');
+                opt.value = f;
+                opt.textContent = f;
+                fileSelect.appendChild(opt);
+            });
+            renderFileTree(fileTreeCache);
+        }
+
+        function renderFileTree(tree, parentPath = '') {
+            const fileTreeDiv = document.getElementById('fileTree');
+            fileTreeDiv.innerHTML = '';
+            function walk(node, path, container) {
+                for (const key in node) {
+                    const fullPath = path ? path + '/' + key : key;
+                    if (typeof node[key] === 'object') {
+                        // Directory
+                        const dirDiv = document.createElement('div');
+                        dirDiv.textContent = key + '/';
+                        dirDiv.style.fontWeight = 'bold';
+                        dirDiv.style.marginLeft = '10px';
+                        container.appendChild(dirDiv);
+                        walk(node[key], fullPath, dirDiv);
+                    } else {
+                        // File
+                        const fileDiv = document.createElement('div');
+                        fileDiv.textContent = key;
+                        fileDiv.style.cursor = 'pointer';
+                        fileDiv.style.marginLeft = '20px';
+                        fileDiv.onclick = () => {
+                            fileSelect.value = fullPath;
+                            currentFile = fullPath;
+                            loadFileContent(fullPath);
+                        };
+                        container.appendChild(fileDiv);
+                    }
+                }
+            }
+            walk(tree, parentPath, fileTreeDiv);
+        }
+        function camelCaseUpperCaseFirstLetter(str) {
+            // Using replace method with regEx
+            return str.replace(/(?:^\w|[A-Z]|\b\w)/g, function (word, index) {
+                return word.toUpperCase();
+            }).replace(/\s+/g, '').replaceAll("-", "");
+        }
+
+        async function loadFileContent(filename) {
+            msg.textContent = '';
+            readonly = (filename === 'widget.js');
+            monacoEditor.updateOptions({ readOnly: readonly });
+            monacoEditor.getModel().setValue('');
+            saveBtn.disabled = readonly;
+            if (readonly) {
+                msg.textContent = 'Editing widget.js is not allowed.';
+                msg.className = 'error';
+                return;
+            }
+            const res = await fetch('/api/widgets/' + encodeURIComponent(filename));
+            if (res.ok) {
+                monacoEditor.getModel().setValue(await res.text());
+            } else {
+                monacoEditor.getModel().setValue('');
+                msg.textContent = 'Failed to load file.';
+                msg.className = 'error';
+            }
+        }
+
+        fileSelect.onchange = () => {
+            currentFile = fileSelect.value;
+            loadFileContent(currentFile);
+        };
+
+        saveBtn.onclick = async () => {
+            if (!currentFile || readonly) return;
+            const res = await fetch('/api/widgets/' + encodeURIComponent(currentFile), {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain' },
+                body: monacoEditor.getValue()
+            });
+            if (res.ok) {
+                msg.textContent = 'Saved!';
+                msg.className = 'success';
+            } else {
+                msg.textContent = 'Save failed.';
+                msg.className = 'error';
+            }
+        };
+
+        createFileBtn.onclick = async () => {
+            const fname = newFileName.value.trim();
+            if (!fname.match(/^[a-zA-Z0-9_\-/]+\.js$/)) {
+                msg.textContent = 'Invalid file name. Use only letters, numbers, _, -, / and end with .js';
+                msg.className = 'error';
+                return;
+            }
+            if (fname === 'widget.js') {
+                msg.textContent = 'Cannot create widget.js.';
+                msg.className = 'error';
+                return;
+            }
+            if (fileListCache.includes(fname)) {
+                msg.textContent = 'File already exists.';
+                msg.className = 'error';
+                return;
+            }
+            const defaultContent = `import {Widget} from './widget.js';
+import {getTime} from '../utils/time.js';
+import {Image, Text} from '../graphics/misc.js';
+import {placepixel} from '../utils/driver.js';
+
+export default class ${camelCaseUpperCaseFirstLetter(fname.split(/[/.]/)[0])}Widget extends Widget {
+    constructor(x,y) {
+        super(x,y);
+    }
+
+    render(x, y, dt) {
+        x += this.x;
+        y += this.y;
+
+        // Add your rendering logic here
+    }
+
+    getBBox(){
+        return {width: 0, height: 0}; //replace this with actual dimensions
+    }
+}`;
+            // Create empty file
+            const res = await fetch('/api/widgets/' + encodeURIComponent(fname), {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain' },
+                body: fname.split('.')[1] === 'js' ? defaultContent : ''
+            });
+            if (res.ok) {
+                await loadFileList();
+                fileSelect.value = fname;
+                currentFile = fname;
+                loadFileContent(fname);
+                msg.textContent = 'File created!';
+                msg.className = 'success';
+            } else {
+                msg.textContent = 'Failed to create file.';
+                msg.className = 'error';
+            }
+        };
+    </script>
+</body>
+</html>
