@@ -1,13 +1,21 @@
-# clock
+# Matrix display Clock
 
-A Matrix clock build on raspberrypi zero.
+A Matrix clock build on raspberrypi zero. (kinda like the LaMetric Time)
 WIP
+
+## Gallery
+
+![img1](IMG_1060.jpg)
+![img1](IMG_1061.jpg)
+![img1](IMG_1062.jpg)
+
 
 ## Features
 Movable widgets, multiple screen environments, animations.
 A control panel in which you can edit just about everything, widget position, widget code etc.
 
 You don't have to worry about the built-in clock in Raspberry-Pi Zero slightly changing over time, because every now and then this software automatically synchronizes with a time server online. 
+
 
 ### Widgets
 
